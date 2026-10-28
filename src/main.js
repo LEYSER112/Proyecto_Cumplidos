@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { APPS_SCRIPT_KEY, APPS_SCRIPT_URL } from './config.js';
 import './style.css';
+import './experience.css';
 
 const $ = (s) => document.querySelector(s);
 const form = $('#report-form');
@@ -8,6 +9,9 @@ const photoInput = $('#photo-input');
 const photoGrid = $('#photo-grid');
 const MAX_PHOTOS = 10;
 let photos = [];
+let cameraPhotos = [];
+let cameraStream = null;
+let sending = false;
 let toastTimer;
 
 const readSettings = () => JSON.parse(localStorage.getItem('cumplidos-settings') || '{}');
@@ -32,10 +36,16 @@ async function optimizeImage(file) {
   return { blob, bytes: new Uint8Array(await blob.arrayBuffer()), url: URL.createObjectURL(blob), width: canvas.width, height: canvas.height, originalSize: file.size };
 }
 
+async function photoFromCanvas(canvas) {
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+  if (!blob) throw new Error('No se pudo procesar la foto tomada.');
+  return { blob, bytes: new Uint8Array(await blob.arrayBuffer()), url: URL.createObjectURL(blob), width: canvas.width, height: canvas.height, originalSize: blob.size };
+}
+
 function renderPhotos() {
   photoGrid.innerHTML = photos.map((photo, index) => `<div class="photo-thumb"><img src="${photo.url}" alt="Foto ${index + 1}" /><span class="photo-index">${String(index + 1).padStart(2, '0')}</span><button type="button" data-remove="${index}" aria-label="Quitar foto ${index + 1}">×</button></div>`).join('');
   $('#photo-count').textContent = `${photos.length} de ${MAX_PHOTOS} fotos`;
-  $('#add-photos').classList.toggle('hidden', photos.length >= MAX_PHOTOS);
+  $('.photo-actions').classList.toggle('hidden', photos.length >= MAX_PHOTOS);
   photoGrid.querySelectorAll('[data-remove]').forEach((button) => button.addEventListener('click', () => { const [removed] = photos.splice(Number(button.dataset.remove), 1); URL.revokeObjectURL(removed.url); renderPhotos(); }));
 }
 
@@ -48,7 +58,50 @@ photoInput.addEventListener('change', async () => {
   }
   photoInput.value = ''; renderPhotos();
 });
-$('#add-photos').addEventListener('click', () => photoInput.click());
+$('#gallery-photos').addEventListener('click', () => photoInput.click());
+
+function stopCamera() {
+  if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
+  cameraStream = null; $('#camera-video').srcObject = null;
+}
+function renderCameraCaptures() {
+  const area = $('#camera-captures');
+  area.innerHTML = cameraPhotos.map((photo, index) => `<div class="camera-capture-thumb"><img src="${photo.url}" alt="Foto capturada ${index + 1}"><button type="button" data-camera-remove="${index}" aria-label="Quitar foto ${index + 1}">×</button></div>`).join('');
+  const total = photos.length + cameraPhotos.length;
+  $('#camera-count').textContent = `${cameraPhotos.length} ${cameraPhotos.length === 1 ? 'foto tomada' : 'fotos tomadas'} · ${MAX_PHOTOS - total} disponibles`;
+  $('#capture-photo').disabled = total >= MAX_PHOTOS;
+  $('#camera-accept').disabled = cameraPhotos.length === 0;
+  area.querySelectorAll('[data-camera-remove]').forEach((button) => button.addEventListener('click', () => { const [removed] = cameraPhotos.splice(Number(button.dataset.cameraRemove), 1); URL.revokeObjectURL(removed.url); renderCameraCaptures(); }));
+}
+async function openCamera() {
+  if (photos.length >= MAX_PHOTOS) return toast(`Ya agregaste el máximo de ${MAX_PHOTOS} fotos.`, true);
+  const dialog = $('#camera-dialog'); const placeholder = $('#camera-placeholder');
+  cameraPhotos.forEach((photo) => URL.revokeObjectURL(photo.url)); cameraPhotos = []; renderCameraCaptures();
+  placeholder.textContent = 'Solicitando acceso a la cámara…'; placeholder.classList.remove('hidden'); dialog.showModal();
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error('Este navegador no permite abrir la cámara desde la app.');
+    cameraStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } } });
+    const video = $('#camera-video'); video.srcObject = cameraStream; await video.play(); placeholder.classList.add('hidden');
+  } catch (error) {
+    stopCamera(); dialog.close(); toast('No se pudo abrir la cámara. Puedes elegir varias fotos desde la galería.', true); photoInput.click();
+  }
+}
+$('#add-photos').addEventListener('click', openCamera);
+$('#capture-photo').addEventListener('click', async () => {
+  const video = $('#camera-video');
+  if (!video.videoWidth) return toast('La cámara aún está iniciando.', true);
+  const maxSide = 1800, scale = Math.min(1, maxSide / Math.max(video.videoWidth, video.videoHeight));
+  const canvas = document.createElement('canvas'); canvas.width = Math.round(video.videoWidth * scale); canvas.height = Math.round(video.videoHeight * scale);
+  canvas.getContext('2d', { alpha: false }).drawImage(video, 0, 0, canvas.width, canvas.height);
+  try { cameraPhotos.push(await photoFromCanvas(canvas)); renderCameraCaptures(); }
+  catch (error) { toast(error.message, true); }
+});
+$('#camera-accept').addEventListener('click', () => {
+  photos.push(...cameraPhotos); cameraPhotos = []; stopCamera(); $('#camera-dialog').close(); renderPhotos(); toast(`${photos.length} ${photos.length === 1 ? 'foto agregada' : 'fotos agregadas'} al reporte.`);
+});
+$('#camera-cancel').addEventListener('click', () => $('#camera-dialog').close());
+$('#camera-close').addEventListener('click', () => $('#camera-dialog').close());
+$('#camera-dialog').addEventListener('close', () => { stopCamera(); cameraPhotos.forEach((photo) => URL.revokeObjectURL(photo.url)); cameraPhotos = []; renderCameraCaptures(); });
 
 function buildPdf() {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
@@ -79,12 +132,14 @@ function blobToBase64(blob) {
     return btoa(binary);
   });
 }
-async function sendToAppsScript({ blob, filename, note, date }) {
+async function sendToAppsScript({ blob, filename, note, date, onStatus = () => {} }) {
   const { scriptUrl, scriptKey } = getBackendConfig();
   if (!scriptUrl || !scriptKey) throw new Error('Configura la URL de Apps Script y su clave en Configuración.');
   if (blob.size > 8 * 1024 * 1024) throw new Error('El PDF supera el límite de 8 MB. Reduce el número o tamaño de las fotos.');
   const requestId = crypto.randomUUID();
-  const payload = JSON.stringify({ requestId, key: scriptKey, filename, note, date, pdfBase64: await blobToBase64(blob) });
+  onStatus('Preparando el archivo para el envío…', 'Optimizando el paquete de fotos.');
+  const pdfBase64 = await blobToBase64(blob);
+  const payload = JSON.stringify({ requestId, key: scriptKey, filename, note, date, pdfBase64 });
   return new Promise((resolve, reject) => {
     const frame = document.createElement('iframe'); const frameName = `cumplidos_${requestId.replace(/-/g, '')}`;
     frame.name = frameName; frame.title = 'Envío seguro del reporte'; frame.hidden = true;
@@ -99,8 +154,22 @@ async function sendToAppsScript({ blob, filename, note, date }) {
     };
     window.addEventListener('message', onMessage);
     timeout = setTimeout(() => { cleanup(); reject(new Error('Apps Script no confirmó el envío. Revisa la conexión y el historial de Google antes de volver a intentarlo.')); }, 90000);
+    onStatus('Enviando a Drive y Sheets…', 'La confirmación aparecerá al terminar. Mantén esta página abierta.');
     document.body.append(frame, form); form.submit();
   });
+}
+
+function showProgress(message, detail) {
+  const panel = $('#progress-panel'); panel.hidden = false; panel.classList.remove('done');
+  $('#progress-message').textContent = message; $('#progress-detail').textContent = detail;
+}
+function showConfirmation() {
+  const name = $('#report-name').value.trim(); const note = $('#report-note').value.trim();
+  $('#confirm-name').textContent = `${slug(name)}.pdf`;
+  $('#confirm-summary').textContent = `${photos.length} ${photos.length === 1 ? 'foto' : 'fotos'} · Se incluirá una foto por página.`;
+  $('#confirm-note').textContent = note ? `Novedad: ${note}` : 'Sin novedad escrita.';
+  const preview = $('#confirm-photos'); preview.replaceChildren(...photos.map((photo, index) => { const img = document.createElement('img'); img.className = 'confirm-photo'; img.src = photo.url; img.alt = `Vista previa de foto ${index + 1}`; return img; }));
+  $('#confirm-dialog').showModal();
 }
 
 function renderHistory() {
@@ -112,27 +181,39 @@ function renderHistory() {
 function escapeHtml(text) { return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
 function escapeAttr(text) { return escapeHtml(text); }
 
-form.addEventListener('submit', async (event) => {
+form.addEventListener('submit', (event) => {
   event.preventDefault();
   if (!photos.length) return toast('Agrega al menos una foto para crear el reporte.', true);
-  const button = $('#save-button'); button.disabled = true; button.querySelector('span:first-child').textContent = 'Preparando PDF…';
+  if (!sending) showConfirmation();
+});
+
+$('#confirm-close').addEventListener('click', () => $('#confirm-dialog').close());
+$('#confirm-back').addEventListener('click', () => $('#confirm-dialog').close());
+$('#confirm-send').addEventListener('click', () => { $('#confirm-dialog').close(); sendReport(); });
+
+async function sendReport() {
+  if (sending) return;
+  sending = true;
+  const button = $('#save-button'); button.disabled = true; button.querySelector('span:first-child').textContent = 'Enviando reporte…';
   const rawName = $('#report-name').value; const filename = `${slug(rawName)}.pdf`; const note = $('#report-note').value.trim(); const date = new Date().toISOString();
   try {
+    showProgress('Creando el PDF…', `${photos.length} ${photos.length === 1 ? 'foto' : 'fotos'}, una por página.`);
     const pdf = buildPdf(); const blob = pdf.output('blob'); let link = '', synced = false, sendError = null;
     const configured = Boolean(getBackendConfig().scriptUrl && getBackendConfig().scriptKey);
     if (configured) {
-      button.querySelector('span:first-child').textContent = 'Enviando a Drive y Sheets…';
-      try { const result = await sendToAppsScript({ blob, filename, note, date }); link = result.fileUrl || ''; synced = true; }
+      try { const result = await sendToAppsScript({ blob, filename, note, date, onStatus: showProgress }); link = result.fileUrl || ''; synced = true; }
       catch (error) { pdf.save(filename); sendError = error; console.error('No se confirmó el envío a Apps Script:', error); }
-    } else { pdf.save(filename); }
+    } else { showProgress('Descargando el reporte…', 'Configura Apps Script para guardar automáticamente en Drive y Sheets.'); pdf.save(filename); }
     const records = readRecords(); records.unshift({ id: crypto.randomUUID(), filename, date, note, link, synced });
     try { localStorage.setItem('cumplidos-records', JSON.stringify(records.slice(0, 30))); } catch { toast('Reporte guardado, pero el historial local está lleno.', true); }
     renderHistory(); form.reset(); photos.forEach((photo) => URL.revokeObjectURL(photo.url)); photos = []; renderPhotos();
-    if (sendError) toast(`${sendError.message} Descargamos el PDF. Antes de reintentar, verifica si ya aparece en Drive y Sheets.`, true);
-    else toast(synced ? 'PDF guardado en Drive y registro añadido a Sheets.' : 'PDF descargado y reporte añadido al historial local.');
-  } catch (error) { toast(`No se pudo guardar el reporte: ${error.message}`, true); }
-  finally { button.disabled = false; button.querySelector('span:first-child').textContent = 'Crear y guardar reporte'; }
-});
+    const panel = $('#progress-panel'); panel.classList.add('done');
+    if (sendError) { $('#progress-message').textContent = 'No llegó la confirmación'; $('#progress-detail').textContent = 'Se descargó el PDF. Verifica Drive y Sheets antes de intentar de nuevo.'; toast(`${sendError.message} Descargamos el PDF. Verifica Drive y Sheets antes de reintentar.`, true); }
+    else { $('#progress-message').textContent = synced ? 'Reporte guardado correctamente' : 'PDF descargado'; $('#progress-detail').textContent = synced ? 'El PDF está en Drive y el registro quedó en Sheets.' : 'El registro quedó en el historial de este dispositivo.'; toast(synced ? 'PDF guardado en Drive y registro añadido a Sheets.' : 'PDF descargado y reporte añadido al historial local.'); }
+    setTimeout(() => { panel.hidden = true; }, 5000);
+  } catch (error) { $('#progress-panel').hidden = true; toast(`No se pudo guardar el reporte: ${error.message}`, true); }
+  finally { sending = false; button.disabled = false; button.querySelector('span:first-child').textContent = 'Crear y guardar reporte'; }
+}
 
 $('#settings-open').addEventListener('click', () => { const s = readSettings(); $('#script-url').value = s.scriptUrl || ''; $('#script-key').value = s.scriptKey || ''; $('#settings-dialog').showModal(); });
 $('#save-settings').addEventListener('click', () => { saveSettingsFromDialog(); $('#settings-dialog').close(); toast('Configuración guardada en este dispositivo.'); });

@@ -31,11 +31,19 @@
           <textarea id="report-note" name="note" rows="3" maxlength="1000" placeholder="Ej. Se entregó en portería. Recibió: Laura…"></textarea>
 
           <div class="section-heading photos-heading"><span class="step">02</span><div><h2>Fotos de evidencia</h2><p>Agrega hasta 10 fotos. Se optimizan antes de crear el PDF.</p></div></div>
-          <input id="photo-input" type="file" accept="image/*" capture="environment" multiple hidden />
+          <input id="photo-input" type="file" accept="image/*" multiple hidden />
           <div id="photo-grid" class="photo-grid"></div>
-          <button type="button" id="add-photos" class="add-photos"><span class="camera-icon">＋</span><span><strong>Tomar o elegir fotos</strong><small>Usa la cámara o la galería de tu dispositivo</small></span><span class="arrow">↗</span></button>
+          <div class="photo-actions">
+            <button type="button" id="add-photos" class="add-photos"><span class="camera-icon">⌁</span><span><strong>Tomar varias fotos</strong><small>Captúralas seguidas y agrégalas juntas</small></span><span class="arrow">↗</span></button>
+            <button type="button" id="gallery-photos" class="gallery-button">Elegir varias de la galería <span>＋</span></button>
+          </div>
           <div class="photo-count"><span id="photo-count">0 de 10 fotos</span><span>Formatos de imagen compatibles</span></div>
           <button class="submit-button" id="save-button" type="submit"><span>Crear y guardar reporte</span><span class="button-arrow">→</span></button>
+          <div id="progress-panel" class="progress-panel" hidden aria-live="polite">
+            <div class="progress-label"><span id="progress-message">Preparando el reporte…</span><span class="progress-dots">•••</span></div>
+            <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+            <small id="progress-detail">Mantén esta página abierta mientras termina el envío.</small>
+          </div>
           <p class="privacy-note"><span>◈</span> Tus fotos se procesan en este dispositivo antes de enviarse.</p>
         </form>
 
@@ -57,6 +65,18 @@
         <div class="settings-actions"><button type="button" id="save-settings" class="secondary-button">Guardar configuración</button></div>
         <p class="settings-footnote">La hoja compartida ya está indicada en el script. Configura la misma clave en Apps Script y aquí. Consulta el README para publicar el servicio con acceso restringido.</p>
       </div>
+    </dialog>
+    <dialog id="camera-dialog" class="camera-dialog">
+      <div class="camera-head"><div><p class="eyebrow">EVIDENCIA FOTOGRÁFICA</p><h2>Tomar fotos</h2></div><button type="button" id="camera-close" class="icon-button" aria-label="Cerrar cámara">×</button></div>
+      <div class="camera-preview"><video id="camera-video" autoplay playsinline muted></video><div id="camera-placeholder" class="camera-placeholder">Iniciando cámara…</div></div>
+      <div class="camera-controls"><span id="camera-count">0 fotos tomadas</span><button type="button" id="capture-photo" class="shutter-button" aria-label="Tomar foto"><span></span></button><span>Máximo 10</span></div>
+      <div id="camera-captures" class="camera-captures"></div>
+      <div class="camera-actions"><button type="button" id="camera-cancel" class="text-button">Cancelar</button><button type="button" id="camera-accept" class="secondary-button" disabled>Agregar fotos</button></div>
+    </dialog>
+    <dialog id="confirm-dialog" class="confirm-dialog">
+      <div class="camera-head"><div><p class="eyebrow">ANTES DE ENVIAR</p><h2>Confirma el reporte</h2></div><button type="button" id="confirm-close" class="icon-button" aria-label="Volver a editar">×</button></div>
+      <div class="confirm-content"><p class="confirm-name" id="confirm-name"></p><p class="confirm-summary" id="confirm-summary"></p><div id="confirm-photos" class="confirm-photos"></div><div id="confirm-note" class="confirm-note"></div><p class="confirm-reminder">Verifica que estén todas las fotos y que correspondan al pedido antes de enviarlo.</p></div>
+      <div class="confirm-actions"><button type="button" id="confirm-back" class="text-button">Volver a revisar</button><button type="button" id="confirm-send" class="secondary-button">Sí, enviar reporte</button></div>
     </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script type="module" src="/src/main.js"></script>
