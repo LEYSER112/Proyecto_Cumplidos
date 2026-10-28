@@ -5,15 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#153d35" />
     <meta name="description" content="Registra pedidos cumplidos con evidencia fotográfica y novedades." />
-    <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Cumplidos" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Cumplidos | Evidencia de entrega</title>
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <a class="brand" href="#inicio" aria-label="Cumplidos, inicio"><span class="brand-mark">✓</span><span>Cumplidos<span class="brand-sub">Evidencia de entrega</span></span></a>
-        <button class="icon-button" id="settings-open" aria-label="Abrir configuración" title="Configuración">⚙</button>
+        <div class="topbar-actions">
+          <button type="button" class="install-pill hidden" id="install-top"><span aria-hidden="true">↓</span> Instalar app</button>
+          <button class="icon-button" id="settings-open" aria-label="Abrir configuración" title="Configuración">⚙</button>
+        </div>
       </header>
 
       <main id="inicio">
@@ -30,7 +38,7 @@
           <label class="field-label spaced" for="report-note">Novedad o comentario <span class="optional">OPCIONAL</span></label>
           <textarea id="report-note" name="note" rows="3" maxlength="1000" placeholder="Ej. Se entregó en portería. Recibió: Laura…"></textarea>
 
-          <div class="section-heading photos-heading"><span class="step">02</span><div><h2>Fotos de evidencia</h2><p>Agrega hasta 10 fotos. Se optimizan antes de crear el PDF.</p></div></div>
+          <div class="section-heading photos-heading"><span class="step">02</span><div><h2>Fotos de evidencia</h2><p>Agrega hasta 10 fotos. Se optimizan sin perder nitidez antes de crear el PDF.</p></div></div>
           <input id="photo-input" type="file" accept="image/*" multiple hidden />
           <div id="photo-grid" class="photo-grid"></div>
           <div class="photo-actions">
@@ -47,9 +55,15 @@
           <p class="privacy-note"><span>◈</span> Tus fotos se procesan en este dispositivo antes de enviarse.</p>
         </form>
 
-        <section class="history-card">
-          <div class="history-header"><div><p class="eyebrow">ACTIVIDAD RECIENTE</p><h2>Reportes guardados</h2></div><span id="history-count" class="count-pill">0</span></div>
-          <div id="history-list" class="history-list"><div class="empty-state"><span>▧</span><p>Aún no hay reportes guardados.</p><small>Cuando crees uno, aparecerá aquí.</small></div></div>
+        <section class="install-card" id="install-card" aria-labelledby="install-title">
+          <div class="install-icon" aria-hidden="true"><img src="/icons/icon-192.png" alt="" width="46" height="46" /></div>
+          <div class="install-copy">
+            <p class="eyebrow">APLICACIÓN</p>
+            <h2 id="install-title">Instala Cumplidos en tu celular</h2>
+            <p id="install-text">Ábrela desde la pantalla de inicio como cualquier app, a pantalla completa y sin buscar el enlace.</p>
+            <ol id="install-steps" class="install-steps hidden"></ol>
+          </div>
+          <button type="button" id="install-button" class="install-button">Instalar app</button>
         </section>
         <footer>Hecho para registrar entregas con claridad <span>·</span> Funciona en tu dispositivo</footer>
       </main>
@@ -68,8 +82,12 @@
     </dialog>
     <dialog id="camera-dialog" class="camera-dialog">
       <div class="camera-head"><div><p class="eyebrow">EVIDENCIA FOTOGRÁFICA</p><h2>Tomar fotos</h2></div><button type="button" id="camera-close" class="icon-button" aria-label="Cerrar cámara">×</button></div>
-      <div class="camera-preview"><video id="camera-video" autoplay playsinline muted></video><div id="camera-placeholder" class="camera-placeholder">Iniciando cámara…</div></div>
-      <div class="camera-controls"><span id="camera-count">0 fotos tomadas</span><button type="button" id="capture-photo" class="shutter-button" aria-label="Tomar foto"><span></span></button><span>Máximo 10</span></div>
+      <div class="camera-preview"><video id="camera-video" autoplay playsinline muted></video><div id="camera-flash-fx" class="camera-flash-fx"></div><div id="camera-placeholder" class="camera-placeholder">Iniciando cámara…</div></div>
+      <div class="camera-controls">
+        <button type="button" id="torch-toggle" class="torch-button" aria-pressed="false" disabled title="Flash no disponible en este dispositivo"><span class="torch-icon" aria-hidden="true">ϟ</span><span class="torch-label">Flash</span></button>
+        <button type="button" id="capture-photo" class="shutter-button" aria-label="Tomar foto"><span></span></button>
+        <span id="camera-count" class="camera-count">0 fotos tomadas</span>
+      </div>
       <div id="camera-captures" class="camera-captures"></div>
       <div class="camera-actions"><button type="button" id="camera-cancel" class="text-button">Cancelar</button><button type="button" id="camera-accept" class="secondary-button" disabled>Agregar fotos</button></div>
     </dialog>
