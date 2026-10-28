@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#153d35" />
+    <meta name="description" content="Registra pedidos cumplidos con evidencia fotográfica y novedades." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <title>Cumplidos | Evidencia de entrega</title>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#inicio" aria-label="Cumplidos, inicio"><span class="brand-mark">✓</span><span>Cumplidos<span class="brand-sub">Evidencia de entrega</span></span></a>
+        <button class="icon-button" id="settings-open" aria-label="Abrir configuración" title="Configuración">⚙</button>
+      </header>
+
+      <main id="inicio">
+        <section class="hero">
+          <div class="hero-copy"><p class="eyebrow">REGISTRO DE ENTREGA</p><h1>Deja constancia<br />de cada cumplido.</h1><p class="hero-text">Captura la evidencia, añade una novedad y guarda el reporte en PDF.</p></div>
+          <div class="hero-stamp" aria-hidden="true"><span>✓</span><small>ENTREGA<br />REGISTRADA</small></div>
+        </section>
+
+        <form id="report-form" class="report-card">
+          <div class="section-heading"><span class="step">01</span><div><h2>Datos del pedido</h2><p>Identifica este registro para encontrarlo después.</p></div></div>
+          <label class="field-label" for="report-name">Nombre del archivo <span class="required">*</span></label>
+          <div class="input-wrap"><span class="input-icon">▤</span><input id="report-name" name="name" maxlength="90" placeholder="Ej. Pedido 1048 — Cliente Pérez" required autocomplete="off" /><span class="suffix">.pdf</span></div>
+          <p class="hint">Los espacios se convertirán en guiones bajos al guardar.</p>
+          <label class="field-label spaced" for="report-note">Novedad o comentario <span class="optional">OPCIONAL</span></label>
+          <textarea id="report-note" name="note" rows="3" maxlength="1000" placeholder="Ej. Se entregó en portería. Recibió: Laura…"></textarea>
+
+          <div class="section-heading photos-heading"><span class="step">02</span><div><h2>Fotos de evidencia</h2><p>Agrega hasta 10 fotos. Se optimizan antes de crear el PDF.</p></div></div>
+          <input id="photo-input" type="file" accept="image/*" capture="environment" multiple hidden />
+          <div id="photo-grid" class="photo-grid"></div>
+          <button type="button" id="add-photos" class="add-photos"><span class="camera-icon">＋</span><span><strong>Tomar o elegir fotos</strong><small>Usa la cámara o la galería de tu dispositivo</small></span><span class="arrow">↗</span></button>
+          <div class="photo-count"><span id="photo-count">0 de 10 fotos</span><span>Formatos de imagen compatibles</span></div>
+          <button class="submit-button" id="save-button" type="submit"><span>Crear y guardar reporte</span><span class="button-arrow">→</span></button>
+          <p class="privacy-note"><span>◈</span> Tus fotos se procesan en este dispositivo antes de enviarse.</p>
+        </form>
+
+        <section class="history-card">
+          <div class="history-header"><div><p class="eyebrow">ACTIVIDAD RECIENTE</p><h2>Reportes guardados</h2></div><span id="history-count" class="count-pill">0</span></div>
+          <div id="history-list" class="history-list"><div class="empty-state"><span>▧</span><p>Aún no hay reportes guardados.</p><small>Cuando crees uno, aparecerá aquí.</small></div></div>
+        </section>
+        <footer>Hecho para registrar entregas con claridad <span>·</span> Funciona en tu dispositivo</footer>
+      </main>
+    </div>
+
+    <dialog id="settings-dialog" class="settings-dialog">
+      <form method="dialog" class="dialog-head"><div><p class="eyebrow">CONECTIVIDAD</p><h2>Configuración</h2></div><button class="icon-button" aria-label="Cerrar">×</button></form>
+      <div class="dialog-body">
+        <div class="connect-status" id="connect-status"><span class="status-dot"></span><span>Apps Script sin configurar</span></div>
+        <p class="settings-intro">Publica el script que viene con el proyecto y pega aquí su URL. El PDF y la novedad se enviarán a Drive y a la hoja compartida.</p>
+        <label class="field-label" for="script-url">URL de la aplicación web de Apps Script</label><input id="script-url" class="settings-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="url" />
+        <label class="field-label settings-spaced" for="script-key">Clave de acceso</label><input id="script-key" type="password" class="settings-input" placeholder="La misma clave configurada en Code.gs" autocomplete="new-password" />
+        <div class="settings-actions"><button type="button" id="save-settings" class="secondary-button">Guardar configuración</button></div>
+        <p class="settings-footnote">La hoja compartida ya está indicada en el script. Configura la misma clave en Apps Script y aquí. Consulta el README para publicar el servicio con acceso restringido.</p>
+      </div>
+    </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "Cumplidos | Evidencia de entrega",
+  "short_name": "Cumplidos",
+  "description": "Registro fotográfico de pedidos cumplidos.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f5f0",
+  "theme_color": "#153d35",
+  "icons": [{ "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
