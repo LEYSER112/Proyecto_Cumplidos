@@ -6,6 +6,7 @@ Aplicación web instalable (PWA) para documentar pedidos entregados con fotos, u
 
 - Interfaz móvil con acceso a cámara y galería; hasta 10 imágenes por reporte.
 - Optimización local de fotos: máximo 1800 px por lado y JPEG calidad 82 %, antes de insertarlas en un PDF A4 comprimido. Se aceptan imágenes compatibles con el navegador; HEIC depende del dispositivo.
+- PDF sencillo: una foto por página, sin títulos, comentarios, fecha ni numeración impresos.
 - Nombre de archivo normalizado: espacios a `_` y caracteres inválidos a `-`.
 - Descarga del PDF y un historial reciente local, incluso sin conexión a Google.
 - Backend opcional de Google Apps Script para guardar en Drive y registrar en una hoja de cálculo.
@@ -36,6 +37,7 @@ El backend está en `apps-script/Code.gs`. Ya apunta al ID de la hoja que compar
 3. Si quieres guardar los PDF dentro de una carpeta concreta, pega su ID en `FOLDER_ID`. Si se deja vacío, se guardan en la raíz de Mi unidad.
 4. Guarda el script y selecciona **Implementar → Nueva implementación → Aplicación web**. Configura **Ejecutar como: yo** y restringe el acceso según quién deba usar la app. Para un equipo de Google Workspace, restringirlo al dominio es preferible.
 5. Copia la URL terminada en `/exec`. Abre `src/config.js`, pega allí la URL y el mismo valor de `API_KEY`, y publica ese cambio en GitHub. Así los transportadores solo abren el enlace de Pages; no necesitan configurar nada en sus teléfonos.
+6. Si modificas `Code.gs` después de crear el despliegue, entra a **Implementar → Gestionar implementaciones → Editar**, selecciona **Nueva versión** y pulsa **Implementar**. La URL `/exec` se conserva.
 
 El script guarda el PDF en Drive y agrega Fecha, Nombre del archivo, Novedad y Enlace del PDF en `Registros`. El enlace respeta los permisos actuales de Drive; comparte la carpeta o el archivo desde Google si el equipo también debe abrir las evidencias.
 

@@ -50,30 +50,15 @@ photoInput.addEventListener('change', async () => {
 });
 $('#add-photos').addEventListener('click', () => photoInput.click());
 
-function buildPdf(name, note, date) {
+function buildPdf() {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-  const pageW = 210, pageH = 297, margin = 14;
-  pdf.setFillColor(21, 61, 53); pdf.rect(0, 0, pageW, 35, 'F');
-  pdf.setTextColor(216, 239, 170); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.text('REGISTRO DE ENTREGA', margin, 13);
-  pdf.setTextColor(255, 255, 255); pdf.setFontSize(18); pdf.text(name, margin, 24, { maxWidth: pageW - 2 * margin });
-  pdf.setTextColor(54, 66, 61); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.text(`Fecha: ${prettyDate(date)}`, margin, 44);
-  if (note.trim()) { pdf.setFont('helvetica', 'bold'); pdf.text('NOVEDAD', margin, 54); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); const lines = pdf.splitTextToSize(note.trim(), pageW - 2 * margin); pdf.text(lines, margin, 60); }
-  const noteLines = note.trim() ? pdf.splitTextToSize(note.trim(), pageW - 2 * margin).length : 0;
-  let y = note.trim() ? Math.max(75, 58 + noteLines * 4.5) : 58;
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.setTextColor(21, 61, 53); pdf.text(`EVIDENCIA FOTOGRÁFICA · ${photos.length} ${photos.length === 1 ? 'FOTO' : 'FOTOS'}`, margin, y); y += 6;
-  const cellW = (pageW - margin * 2 - 6) / 2, cellH = 87;
-  photos.forEach((photo, i) => {
-    if (i && i % 4 === 0) { pdf.addPage(); y = 18; }
-    if (y + cellH > pageH - 12) { pdf.addPage(); y = 18; }
-    const col = i % 2, row = Math.floor((i % 4) / 2), x = margin + col * (cellW + 6), top = y + row * (cellH + 5);
-    pdf.setDrawColor(221, 226, 218); pdf.roundedRect(x, top, cellW, cellH, 2, 2, 'S');
-    const fit = Math.min((cellW - 4) / photo.width, (cellH - 10) / photo.height); const w = photo.width * fit, h = photo.height * fit;
-    pdf.addImage(photo.bytes, 'JPEG', x + (cellW - w) / 2, top + 2 + (cellH - 10 - h) / 2, w, h, undefined, 'FAST');
-    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7); pdf.setTextColor(116, 126, 118); pdf.text(`Foto ${String(i + 1).padStart(2, '0')}`, x + 3, top + cellH - 3);
-    if (i % 4 === 3 || i === photos.length - 1) y = top + cellH + 5;
+  const pageW = 210, pageH = 297, margin = 5;
+  photos.forEach((photo, index) => {
+    if (index > 0) pdf.addPage();
+    const scale = Math.min((pageW - margin * 2) / photo.width, (pageH - margin * 2) / photo.height);
+    const width = photo.width * scale, height = photo.height * scale;
+    pdf.addImage(photo.bytes, 'JPEG', (pageW - width) / 2, (pageH - height) / 2, width, height, undefined, 'FAST');
   });
-  const pages = pdf.getNumberOfPages();
-  for (let i = 1; i <= pages; i++) { pdf.setPage(i); pdf.setDrawColor(230, 233, 228); pdf.line(margin, pageH - 10, pageW - margin, pageH - 10); pdf.setFontSize(7); pdf.setTextColor(140, 149, 140); pdf.text('CUMPLIDOS · EVIDENCIA DE ENTREGA', margin, pageH - 5); pdf.text(`${i} / ${pages}`, pageW - margin, pageH - 5, { align: 'right' }); }
   return pdf;
 }
 
@@ -108,7 +93,7 @@ async function sendToAppsScript({ blob, filename, note, date }) {
     let timeout;
     const cleanup = () => { clearTimeout(timeout); window.removeEventListener('message', onMessage); form.remove(); frame.remove(); };
     const onMessage = (event) => {
-      if (event.source !== frame.contentWindow || event.data?.requestId !== requestId) return;
+      if (event.data?.requestId !== requestId || event.data?.type !== 'cumplidos-result') return;
       cleanup();
       if (event.data.ok) resolve(event.data); else reject(new Error(event.data.error || 'Apps Script no pudo guardar el reporte.'));
     };
@@ -133,8 +118,8 @@ form.addEventListener('submit', async (event) => {
   const button = $('#save-button'); button.disabled = true; button.querySelector('span:first-child').textContent = 'Preparando PDF…';
   const rawName = $('#report-name').value; const filename = `${slug(rawName)}.pdf`; const note = $('#report-note').value.trim(); const date = new Date().toISOString();
   try {
-    const pdf = buildPdf(rawName.trim(), note, date); const blob = pdf.output('blob'); let link = '', synced = false, sendError = null;
-    const configured = Boolean(readSettings().scriptUrl && readSettings().scriptKey);
+    const pdf = buildPdf(); const blob = pdf.output('blob'); let link = '', synced = false, sendError = null;
+    const configured = Boolean(getBackendConfig().scriptUrl && getBackendConfig().scriptKey);
     if (configured) {
       button.querySelector('span:first-child').textContent = 'Enviando a Drive y Sheets…';
       try { const result = await sendToAppsScript({ blob, filename, note, date }); link = result.fileUrl || ''; synced = true; }

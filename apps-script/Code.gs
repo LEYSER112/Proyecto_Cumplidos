@@ -1,6 +1,6 @@
 /**
  * Backend de Cumplidos.
- * 1) Cambia API_KEY por una clave aleatoria larga y privada.
+ * 1) Cambia API_KEY por una cadena de acceso aleatoria y larga.
  * 2) Revisa SPREADSHEET_ID y, si quieres, FOLDER_ID.
  * 3) Despliega como aplicación web ejecutada por ti.
  */
@@ -12,6 +12,10 @@ const MAX_PDF_BYTES = 8 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
 const CACHE_TTL_SECONDS = 21600;
 
+function doGet() {
+  return HtmlService.createHtmlOutput('<!doctype html><meta charset="utf-8"><title>Cumplidos</title><p>Servicio de Cumplidos activo. Puedes cerrar esta pestaña.</p>');
+}
+
 function doPost(e) {
   let requestId = '';
   try {
@@ -19,7 +23,7 @@ function doPost(e) {
     if (Number(e.contentLength || 0) > MAX_REQUEST_BYTES) throw new Error('El envío supera el tamaño permitido. Reduce el número o tamaño de las fotos.');
     const data = JSON.parse(e.parameter.payload);
     requestId = String(data.requestId || '');
-    if (!API_KEY || API_KEY.indexOf('CAMBIAR_') === 0) throw new Error('Falta configurar la clave privada en Code.gs.');
+    if (!API_KEY || API_KEY.indexOf('CAMBIAR_') === 0) throw new Error('Falta configurar la clave de acceso en Code.gs.');
     if (data.key !== API_KEY) throw new Error('La clave de acceso no es válida.');
     if (!requestId || requestId.length > 100) throw new Error('El identificador del envío no es válido.');
     const filename = safeFilename_(data.filename);
@@ -68,6 +72,6 @@ function safeFilename_(value) {
 
 function resultPage_(result) {
   const safeJson = JSON.stringify(result).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
-  const html = '<!doctype html><meta charset="utf-8"><script>window.parent.postMessage(' + safeJson + ', "*");</script>';
+  const html = '<!doctype html><meta charset="utf-8"><script>window.top.postMessage(Object.assign({type:"cumplidos-result"}, ' + safeJson + '), "*");</script>';
   return HtmlService.createHtmlOutput(html).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
