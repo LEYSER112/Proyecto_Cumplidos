@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { APPS_SCRIPT_KEY, APPS_SCRIPT_URL } from './config.js';
 import './style.css';
 
 const $ = (s) => document.querySelector(s);
@@ -11,6 +12,7 @@ let toastTimer;
 
 const readSettings = () => JSON.parse(localStorage.getItem('cumplidos-settings') || '{}');
 const saveSettings = (settings) => localStorage.setItem('cumplidos-settings', JSON.stringify(settings));
+const getBackendConfig = () => { const saved = readSettings(); return { scriptUrl: APPS_SCRIPT_URL || saved.scriptUrl || '', scriptKey: APPS_SCRIPT_KEY || saved.scriptKey || '' }; };
 const readRecords = () => JSON.parse(localStorage.getItem('cumplidos-records') || '[]');
 const slug = (value) => value.trim().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '-').replace(/_+/g, '_').replace(/^[_-]+|[_-]+$/g, '') || 'reporte';
 const prettyDate = (value) => new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
@@ -27,7 +29,7 @@ async function optimizeImage(file) {
   const ctx = canvas.getContext('2d', { alpha: false }); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
   if (!blob) throw new Error('No se pudo procesar una de las fotos.');
-  return { blob, url: URL.createObjectURL(blob), width: canvas.width, height: canvas.height, originalSize: file.size };
+  return { blob, bytes: new Uint8Array(await blob.arrayBuffer()), url: URL.createObjectURL(blob), width: canvas.width, height: canvas.height, originalSize: file.size };
 }
 
 function renderPhotos() {
@@ -66,7 +68,7 @@ function buildPdf(name, note, date) {
     const col = i % 2, row = Math.floor((i % 4) / 2), x = margin + col * (cellW + 6), top = y + row * (cellH + 5);
     pdf.setDrawColor(221, 226, 218); pdf.roundedRect(x, top, cellW, cellH, 2, 2, 'S');
     const fit = Math.min((cellW - 4) / photo.width, (cellH - 10) / photo.height); const w = photo.width * fit, h = photo.height * fit;
-    pdf.addImage(photo.blob, 'JPEG', x + (cellW - w) / 2, top + 2 + (cellH - 10 - h) / 2, w, h, undefined, 'FAST');
+    pdf.addImage(photo.bytes, 'JPEG', x + (cellW - w) / 2, top + 2 + (cellH - 10 - h) / 2, w, h, undefined, 'FAST');
     pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7); pdf.setTextColor(116, 126, 118); pdf.text(`Foto ${String(i + 1).padStart(2, '0')}`, x + 3, top + cellH - 3);
     if (i % 4 === 3 || i === photos.length - 1) y = top + cellH + 5;
   });
@@ -76,8 +78,9 @@ function buildPdf(name, note, date) {
 }
 
 function updateConnectStatus() {
-  const configured = Boolean(readSettings().scriptUrl && readSettings().scriptKey);
+  const config = getBackendConfig(); const configured = Boolean(config.scriptUrl && config.scriptKey);
   const node = $('#connect-status'); node.classList.toggle('connected', configured); node.querySelector('span:last-child').textContent = configured ? 'Apps Script configurado' : 'Apps Script sin configurar';
+  $('#settings-open').classList.toggle('hidden', Boolean(APPS_SCRIPT_URL && APPS_SCRIPT_KEY));
 }
 function saveSettingsFromDialog() {
   const scriptUrl = $('#script-url').value.trim();
@@ -92,7 +95,7 @@ function blobToBase64(blob) {
   });
 }
 async function sendToAppsScript({ blob, filename, note, date }) {
-  const { scriptUrl, scriptKey } = readSettings();
+  const { scriptUrl, scriptKey } = getBackendConfig();
   if (!scriptUrl || !scriptKey) throw new Error('Configura la URL de Apps Script y su clave en Configuración.');
   if (blob.size > 8 * 1024 * 1024) throw new Error('El PDF supera el límite de 8 MB. Reduce el número o tamaño de las fotos.');
   const requestId = crypto.randomUUID();
